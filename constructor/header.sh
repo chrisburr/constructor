@@ -5,22 +5,22 @@
 # PLAT:  __PLAT__
 # MD5:   __MD5__
 
-#if osx
-unset DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH
-#else
-export OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-unset LD_LIBRARY_PATH
-#endif
-
 if ! echo "$0" | grep '\.sh$' > /dev/null; then
     printf 'Please run using "bash"/"dash"/"sh"/"zsh", but not "." or "source".\n' >&2
     return 1
 fi
 
+# Export variables to make installer metadata available to pre/post install scripts
+export INSTALLER_NAME="__NAME__"
+export INSTALLER_VER="__VERSION__"
+export INSTALLER_PLAT="__PLAT__"
+
 THIS_DIR=$(DIRNAME=$(dirname "$0"); cd "$DIRNAME"; pwd)
 THIS_FILE=$(basename "$0")
 THIS_PATH="$THIS_DIR/$THIS_FILE"
 PREFIX=__DEFAULT_PREFIX__
+CLEAN_ENV=1
+OVERRIDE_CONDA_EXEC=""
 #if batch_mode
 BATCH=1
 #else
@@ -54,13 +54,15 @@ Installs __NAME__ __VERSION__
 -p PREFIX    install prefix, defaults to $PREFIX, must not contain spaces.
 -s           skip running pre/post-link/install scripts
 -u           update an existing installation
+-c           override the path to conda.exe used for installation
+-e           disable cleaning of environment variables that may interfer with the installation
 #if has_conda
 -t           run package tests after installation (may install conda-build)
 #endif
 "
 
 if which getopt > /dev/null 2>&1; then
-    OPTS=$(getopt bifhkp:sut "$*" 2>/dev/null)
+    OPTS=$(getopt bifhkp:suc:et "$*" 2>/dev/null)
     if [ ! $? ]; then
         printf "%s\\n" "$USAGE"
         exit 2
@@ -103,6 +105,15 @@ if which getopt > /dev/null 2>&1; then
                 FORCE=1
                 shift
                 ;;
+            -c)
+                OVERRIDE_CONDA_EXEC="$2"
+                shift
+                shift
+                ;;
+            -e)
+                CLEAN_ENV=0
+                shift
+                ;;
 #if has_conda
             -t)
                 TEST=1
@@ -120,7 +131,7 @@ if which getopt > /dev/null 2>&1; then
         esac
     done
 else
-    while getopts "bifhkp:sut" x; do
+    while getopts "bifhkp:suc:et" x; do
         case "$x" in
             h)
                 printf "%s\\n" "$USAGE"
@@ -147,6 +158,12 @@ else
             u)
                 FORCE=1
                 ;;
+            c)
+                OVERRIDE_CONDA_EXEC="$OPTARG"
+                ;;
+            e)
+                CLEAN_ENV=0
+                ;;
 #if has_conda
             t)
                 TEST=1
@@ -158,6 +175,15 @@ else
                 ;;
         esac
     done
+fi
+
+if [ "$CLEAN_ENV" = "1" ]; then
+#if osx
+    unset DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH
+#else
+    export OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+    unset LD_LIBRARY_PATH
+#endif
 fi
 
 # For testing, keep the package cache around longer
@@ -422,13 +448,20 @@ fi
 
 cd "$PREFIX"
 
-# disable sysconfigdata overrides, since we want whatever was frozen to be used
-unset PYTHON_SYSCONFIGDATA_NAME _CONDA_PYTHON_SYSCONFIGDATA_NAME
+if [ "$CLEAN_ENV" = "1" ]; then
+    # disable sysconfigdata overrides, since we want whatever was frozen to be used
+    unset PYTHON_SYSCONFIGDATA_NAME _CONDA_PYTHON_SYSCONFIGDATA_NAME
+fi
 
-# the first binary payload: the standalone conda executable
-CONDA_EXEC="$PREFIX/conda.exe"
-extract_range $boundary0 $boundary1 > "$CONDA_EXEC"
-chmod +x "$CONDA_EXEC"
+# Allow overriding the conda.exe binary
+if [ "$OVERRIDE_CONDA_EXEC" != "" ]; then
+    CONDA_EXEC="${OVERRIDE_CONDA_EXEC}"
+else
+    # the first binary payload: the standalone conda executable
+    CONDA_EXEC="$PREFIX/conda.exe"
+    extract_range $boundary0 $boundary1 > "$CONDA_EXEC"
+    chmod +x "$CONDA_EXEC"
+fi
 
 export TMP_BACKUP="$TMP"
 export TMP=$PREFIX/install_tmp
@@ -494,7 +527,9 @@ POSTCONDA="$PREFIX/postconda.tar.bz2"
 "$CONDA_EXEC" constructor --prefix "$PREFIX" --extract-tarball < "$POSTCONDA" || exit 1
 rm -f "$POSTCONDA"
 
-rm -f $PREFIX/conda.exe
+if [ "$OVERRIDE_CONDA_EXEC" = "" ]; then
+    rm -f $PREFIX/conda.exe
+fi
 rm -f $PREFIX/pkgs/env.txt
 
 rm -rf $PREFIX/install_tmp
