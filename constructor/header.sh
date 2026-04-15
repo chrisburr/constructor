@@ -459,7 +459,7 @@ export PREFIX
 export MAMBA_ROOT_PREFIX="$PREFIX"
 # Prevent libmamba from stat-ing $HOME/.mambarc and similar during startup;
 # keeps the installer self-contained.
-export MAMBA_NO_RC=1
+export MAMBA_NO_RC=true
 
 printf "PREFIX=%s\\n" "$PREFIX"
 
