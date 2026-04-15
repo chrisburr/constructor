@@ -6,6 +6,8 @@
 
 * Skip creating `~/.conda` in shell installers when `register_envs` is false.
   Avoids a spurious failure when `$HOME` is read-only. (#1215)
+* Export `MAMBA_ROOT_PREFIX="$PREFIX"` in shell installers so micromamba does
+  not attempt to access `$HOME/micromamba` at startup. (#1215)
 
 ### Deprecations
 

@@ -453,6 +453,10 @@ fi
 # https://github.com/conda/constructor/issues/284
 PREFIX=$(cd "$PREFIX"; pwd | sed 's@//@/@')
 export PREFIX
+# Point MAMBA_ROOT_PREFIX at $PREFIX so micromamba does not touch
+# $HOME/micromamba on startup (fails when $HOME is not writable).
+# Harmless when CONDA_EXEC is conda-standalone.
+export MAMBA_ROOT_PREFIX="$PREFIX"
 
 printf "PREFIX=%s\\n" "$PREFIX"
 
