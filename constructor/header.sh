@@ -457,6 +457,9 @@ export PREFIX
 # $HOME/micromamba on startup (fails when $HOME is not writable).
 # Harmless when CONDA_EXEC is conda-standalone.
 export MAMBA_ROOT_PREFIX="$PREFIX"
+# Prevent libmamba from stat-ing $HOME/.mambarc and similar during startup;
+# keeps the installer self-contained.
+export MAMBA_NO_RC=1
 
 printf "PREFIX=%s\\n" "$PREFIX"
 

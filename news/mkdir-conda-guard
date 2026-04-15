@@ -8,6 +8,8 @@
   Avoids a spurious failure when `$HOME` is read-only. (#1215)
 * Export `MAMBA_ROOT_PREFIX="$PREFIX"` in shell installers so micromamba does
   not attempt to access `$HOME/micromamba` at startup. (#1215)
+* Export `MAMBA_NO_RC=1` in shell installers so libmamba does not load
+  `$HOME/.mambarc` / `$HOME/.condarc` during install. (#1215)
 
 ### Deprecations
 
